@@ -34,13 +34,13 @@ app.post("/webhook", (req, res) => {
   res.sendStatus(200);
 });
 
-/* ===== BOT COMMANDS ===== */
+/* ===== BOT ===== */
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
     "🎬 *Video Downloader Bot*\n\n" +
       "📥 ابعت لينك فيديو من:\n" +
-      "TikTok / Instagram / YouTube / Twitter\n\n" +
+      "TikTok / Instagram / YouTube / X / Facebook\n\n" +
       "⬇️ وأنا أحملهولك",
     { parse_mode: "Markdown" }
   );
@@ -49,26 +49,43 @@ bot.onText(/\/start/, (msg) => {
 bot.on("message", (msg) => {
   if (!msg.text || msg.text.startsWith("/")) return;
 
+  const chatId = msg.chat.id;
   const url = msg.text.trim();
+
   if (!url.startsWith("http")) return;
 
-  bot.sendMessage(msg.chat.id, "⏳ جاري التحميل...");
+  bot.sendMessage(chatId, "⏳ جاري التحميل...");
 
-  const fileName = `video_${Date.now()}.mp4`;
-  const filePath = path.join(DOWNLOAD_DIR, fileName);
+  const outputTemplate = path.join(
+    DOWNLOAD_DIR,
+    `video_${Date.now()}.%(ext)s`
+  );
 
-  const command = `yt-dlp -f mp4 -o "${filePath}" "${url}"`;
+  // yt-dlp command
+  const command = `yt-dlp -f mp4 -o "${outputTemplate}" "${url}"`;
 
   exec(command, (error) => {
     if (error) {
+      console.error(error);
       bot.sendMessage(
-        msg.chat.id,
+        chatId,
         "❌ فشل التحميل\nاللينك غير مدعوم أو الفيديو خاص"
       );
       return;
     }
 
-    bot.sendVideo(msg.chat.id, filePath).then(() => {
+    // find downloaded file
+    const files = fs.readdirSync(DOWNLOAD_DIR);
+    const file = files.find((f) => f.startsWith("video_"));
+
+    if (!file) {
+      bot.sendMessage(chatId, "❌ لم يتم العثور على الملف");
+      return;
+    }
+
+    const filePath = path.join(DOWNLOAD_DIR, file);
+
+    bot.sendVideo(chatId, filePath).then(() => {
       fs.unlinkSync(filePath);
     });
   });
@@ -80,5 +97,6 @@ app.listen(PORT, async () => {
 
   const webhookUrl = `${process.env.RENDER_EXTERNAL_URL}/webhook`;
   await bot.setWebHook(webhookUrl);
+
   console.log("✅ Webhook set:", webhookUrl);
 });
