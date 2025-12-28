@@ -11,7 +11,7 @@ const DOWNLOAD_DIR = "./downloads";
 /* ========================= */
 
 if (!BOT_TOKEN) {
-  console.error("Missing BOT_TOKEN");
+  console.error("❌ Missing BOT_TOKEN");
   process.exit(1);
 }
 
@@ -34,18 +34,20 @@ app.post("/webhook", (req, res) => {
   res.sendStatus(200);
 });
 
-/* ===== BOT ===== */
+/* ===== BOT START ===== */
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
     "🎬 *Video Downloader Bot*\n\n" +
       "📥 ابعت لينك فيديو من:\n" +
       "TikTok / Instagram / YouTube / X / Facebook\n\n" +
-      "⬇️ وأنا أحملهولك",
+      "⏳ التحميل قد يستغرق شوية\n" +
+      "⬇️ وأنا أبعتهولك",
     { parse_mode: "Markdown" }
   );
 });
 
+/* ===== HANDLE LINKS ===== */
 bot.on("message", (msg) => {
   if (!msg.text || msg.text.startsWith("/")) return;
 
@@ -61,20 +63,24 @@ bot.on("message", (msg) => {
     `video_${Date.now()}.%(ext)s`
   );
 
-  // yt-dlp command
-  const command = `yt-dlp -f mp4 -o "${outputTemplate}" "${url}"`;
+  // ✅ صيغة صحيحة بدون دمج (مناسبة لـ Render)
+  const command = `yt-dlp -f "best[ext=mp4]/best" -o "${outputTemplate}" "${url}"`;
+
+  console.log("Downloading:", url);
 
   exec(command, (error) => {
     if (error) {
       console.error(error);
       bot.sendMessage(
         chatId,
-        "❌ فشل التحميل\nاللينك غير مدعوم أو الفيديو خاص"
+        "❌ فشل التحميل\n" +
+        "• الفيديو خاص\n" +
+        "• أو حجمه كبير\n" +
+        "• أو المنصة غير مدعومة"
       );
       return;
     }
 
-    // find downloaded file
     const files = fs.readdirSync(DOWNLOAD_DIR);
     const file = files.find((f) => f.startsWith("video_"));
 
