@@ -42,21 +42,11 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
     "📰 *Crypto News Bot*\n\n" +
-      "• أخبار كريبتو عامة\n" +
-      "• تلخيص + مصدر + رابط\n\n" +
-      "✳️ استخدم /news لاختبار فوري",
+      "✅ تم الاشتراك في الأخبار التلقائية\n" +
+      "📡 أي خبر جديد هيوصلك فورًا\n\n" +
+      "✍️ @A7med_ad1",
     { parse_mode: "Markdown" }
   );
-});
-
-/* ========= MANUAL TEST ========= */
-bot.onText(/\/news/, async (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "🔍 بفحص الأخبار الآن...");
-  const items = await fetchAllNews(true);
-  if (!items.length) {
-    bot.sendMessage(chatId, "❌ مفيش أخبار حالياً من أي مصدر");
-  }
 });
 
 /* ========= FETCH CRYPTOPANIC ========= */
@@ -68,11 +58,8 @@ async function fetchCryptoPanic() {
 
     const res = await fetch(url);
     const data = await res.json();
-
-    console.log("CryptoPanic results:", data.results?.length || 0);
     return data.results || [];
-  } catch (e) {
-    console.log("CryptoPanic error");
+  } catch {
     return [];
   }
 }
@@ -86,35 +73,28 @@ async function fetchRSS() {
       news.push(...parsed.items.slice(0, 3));
     } catch {}
   }
-  console.log("RSS results:", news.length);
   return news;
 }
 
-/* ========= COLLECT ALL ========= */
-async function fetchAllNews(forceSend = false) {
+/* ========= MAIN LOOP ========= */
+async function checkNews() {
   let posts = await fetchCryptoPanic();
-  let source = "cryptopanic";
-
   if (!posts.length) {
     posts = await fetchRSS();
-    source = "rss";
   }
-
-  console.log("Using source:", source);
 
   for (const post of posts) {
     const id = post.id || post.link;
-    if (!forceSend && sentItems.has(id)) continue;
-
+    if (sentItems.has(id)) continue;
     sentItems.add(id);
 
     const title = post.title;
     const link = post.url || post.link;
-    const from =
+    const source =
       post.source?.title ||
       post.creator ||
       post.site ||
-      "RSS";
+      "Crypto News";
 
     const message =
 `🚨 *Crypto News*
@@ -126,18 +106,13 @@ ${title}
 • Volatility expected
 • More updates soon
 
-📰 Source: ${from}
+📰 *Source:* ${source}
 🔗 ${link}`;
 
     for (const chatId of subscribers) {
       await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
     }
   }
-
-  return posts;
 }
 
-/* ========= AUTO LOOP ========= */
-setInterval(() => {
-  fetchAllNews(false);
-}, CHECK_INTERVAL);
+setInterval(checkNews, CHECK_INTERVAL);
