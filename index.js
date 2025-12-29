@@ -153,4 +153,5 @@ async function sendPrices() {
 
 /* ========= RUN ========= */
 setInterval(checkNews, NEWS_INTERVAL);
+sendPrices();
 setInterval(sendPrices, PRICES_INTERVAL);
