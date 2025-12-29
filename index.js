@@ -9,12 +9,12 @@ const CRYPTOPANIC_API = process.env.CRYPTOPANIC_API;
 const PORT = process.env.PORT || 3000;
 
 const CHECK_INTERVAL = 60 * 1000;
-const SIGNATURE = "@A7med_ad1";
 const CHANNEL_ID = "@Crypto_NewsAR";
+const SIGNATURE = "@A7med_ad1";
 /* ========================= */
 
 if (!BOT_TOKEN || !CRYPTOPANIC_API) {
-  console.error("❌ Missing environment variables");
+  console.error("❌ Missing ENV variables");
   process.exit(1);
 }
 
@@ -39,31 +39,22 @@ const RSS_FEEDS = [
 
 /* ========= HELPERS ========= */
 function getDateTime() {
-  return new Date().toLocaleString("ar-EG", {
-    timeZone: "Africa/Cairo",
-    hour12: true
+  return new Date().toLocaleString("en-GB", {
+    timeZone: "UTC"
   });
 }
 
-function classify(title = "") {
+function buildHashtags(title = "") {
   const t = title.toLowerCase();
-  if (t.includes("bitcoin") || t.includes("btc")) return "🟠 Bitcoin";
-  if (t.includes("ethereum") || t.includes("eth")) return "🔵 Ethereum";
-  if (t.includes("binance") || t.includes("coinbase")) return "🏦 Exchanges";
-  if (t.includes("hack") || t.includes("exploit")) return "🚨 Security";
-  if (t.includes("etf") || t.includes("sec")) return "🏛️ Regulation";
-  if (t.includes("altcoin")) return "🟣 Altcoins";
-  return "🌍 General";
-}
+  let tags = ["#Crypto", "#Blockchain", "#News"];
 
-function arabicSummary() {
-  return (
-    "• الخبر يوضح تطورات جديدة في سوق العملات الرقمية.\n" +
-    "• المتداولون يراقبون تأثيره على الأسعار.\n" +
-    "• من المحتمل حدوث تقلبات خلال الفترة القادمة.\n" +
-    "• التحليل يشير إلى تغير في شهية المخاطرة.\n" +
-    "• التفاصيل الكاملة عبر المصدر."
-  );
+  if (t.includes("bitcoin") || t.includes("btc")) tags.push("#Bitcoin");
+  if (t.includes("ethereum") || t.includes("eth")) tags.push("#Ethereum");
+  if (t.includes("binance")) tags.push("#Binance");
+  if (t.includes("sec") || t.includes("etf")) tags.push("#Regulation");
+  if (t.includes("hack")) tags.push("#Security");
+
+  return tags.join(" ");
 }
 
 /* ========= FETCH CRYPTOPANIC ========= */
@@ -87,7 +78,7 @@ async function fetchRSS() {
   for (const feed of RSS_FEEDS) {
     try {
       const parsed = await parser.parseURL(feed);
-      news.push(...parsed.items.slice(0, 3));
+      news.push(...parsed.items.slice(0, 2));
     } catch {}
   }
   return news;
@@ -105,30 +96,20 @@ async function checkNews() {
 
     const title = post.title;
     const link = post.url || post.link;
-    const source =
-      post.source?.title ||
-      post.creator ||
-      post.site ||
-      "Crypto News";
 
     const message =
-`🚨 *خبر كريبتو جديد*
+`🚨 Crypto News
 
 🕒 ${getDateTime()}
-🏷️ ${classify(title)}
 
-📰 *العنوان:*
 ${title}
-
-🧠 *ملخص بالعربي:*
-${arabicSummary()}
 
 🔗 ${link}
 
+${buildHashtags(title)}
 ✍️ ${SIGNATURE}`;
 
     await bot.sendMessage(CHANNEL_ID, message, {
-      parse_mode: "Markdown",
       disable_web_page_preview: false
     });
   }
