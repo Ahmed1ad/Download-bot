@@ -11,7 +11,7 @@ const CHECK_INTERVAL = 60 * 1000;
 /* ========================= */
 
 if (!BOT_TOKEN || !CRYPTOPANIC_API) {
-  console.error("Missing environment variables");
+  console.error("❌ Missing environment variables");
   process.exit(1);
 }
 
@@ -29,7 +29,7 @@ const parser = new Parser();
 const subscribers = new Set();
 const sentItems = new Set();
 
-/* ========= RSS SOURCES ========= */
+/* ========= RSS FEEDS ========= */
 const RSS_FEEDS = [
   "https://cointelegraph.com/rss",
   "https://www.coindesk.com/arc/outboundfeeds/rss/",
@@ -42,98 +42,102 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
     "📰 *Crypto News Bot*\n\n" +
-      "📡 أخبار كريبتو عامة\n" +
-      "🧠 تلخيص واضح\n" +
-      "🔁 CryptoPanic + RSS احتياطي\n\n" +
-      "جاهز 🚀",
+      "• أخبار كريبتو عامة\n" +
+      "• تلخيص + مصدر + رابط\n\n" +
+      "✳️ استخدم /news لاختبار فوري",
     { parse_mode: "Markdown" }
   );
 });
-/* ========================= */
 
-/* ========= SEND ========= */
-async function broadcast(message) {
-  for (const id of subscribers) {
-    await bot.sendMessage(id, message, { parse_mode: "Markdown" });
+/* ========= MANUAL TEST ========= */
+bot.onText(/\/news/, async (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, "🔍 بفحص الأخبار الآن...");
+  const items = await fetchAllNews(true);
+  if (!items.length) {
+    bot.sendMessage(chatId, "❌ مفيش أخبار حالياً من أي مصدر");
+  }
+});
+
+/* ========= FETCH CRYPTOPANIC ========= */
+async function fetchCryptoPanic() {
+  try {
+    const url =
+      `https://cryptopanic.com/api/developer/v2/posts/` +
+      `?auth_token=${CRYPTOPANIC_API}&public=true&limit=5`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    console.log("CryptoPanic results:", data.results?.length || 0);
+    return data.results || [];
+  } catch (e) {
+    console.log("CryptoPanic error");
+    return [];
   }
 }
-/* ========================= */
 
-/* ========= CRYPTOPANIC ========= */
-async function fetchCryptoPanic() {
-  const url =
-    `https://cryptopanic.com/api/developer/v2/posts/` +
-    `?auth_token=${CRYPTOPANIC_API}&public=true&limit=5`;
-
-  const res = await fetch(url);
-  const text = await res.text();
-
-  if (!text.startsWith("{")) return [];
-
-  const data = JSON.parse(text);
-  return data.results || [];
-}
-/* ========================= */
-
-/* ========= RSS ========= */
+/* ========= FETCH RSS ========= */
 async function fetchRSS() {
   let news = [];
-  for (const feedUrl of RSS_FEEDS) {
+  for (const feed of RSS_FEEDS) {
     try {
-      const feed = await parser.parseURL(feedUrl);
-      news.push(...feed.items.slice(0, 3));
-    } catch (_) {}
+      const parsed = await parser.parseURL(feed);
+      news.push(...parsed.items.slice(0, 3));
+    } catch {}
   }
+  console.log("RSS results:", news.length);
   return news;
 }
-/* ========================= */
 
-/* ========= MAIN LOOP ========= */
-async function checkNews() {
-  try {
-    let posts = await fetchCryptoPanic();
-    let sourceType = "cryptopanic";
+/* ========= COLLECT ALL ========= */
+async function fetchAllNews(forceSend = false) {
+  let posts = await fetchCryptoPanic();
+  let source = "cryptopanic";
 
-    if (!posts.length) {
-      posts = await fetchRSS();
-      sourceType = "rss";
-    }
-
-    for (const post of posts) {
-      const id = post.id || post.link;
-      if (sentItems.has(id)) continue;
-      sentItems.add(id);
-
-      const title = post.title;
-      const link = post.url || post.link;
-      const source =
-        post.source?.title ||
-        post.creator ||
-        post.site ||
-        "RSS Source";
-
-      const summary =
-`${title}
-• The crypto market is reacting to this development.
-• Investors are closely watching price movements.
-• This news may affect short-term sentiment.
-• Volatility could increase following this update.
-• Further updates are expected soon.`;
-
-      const message =
-`🚨 *Crypto News Alert*
-
-${summary}
-
-📰 *Source:* ${source}
-🔗 [Read more](${link})`;
-
-      await broadcast(message);
-    }
-  } catch (err) {
-    console.error("News error:", err.message);
+  if (!posts.length) {
+    posts = await fetchRSS();
+    source = "rss";
   }
+
+  console.log("Using source:", source);
+
+  for (const post of posts) {
+    const id = post.id || post.link;
+    if (!forceSend && sentItems.has(id)) continue;
+
+    sentItems.add(id);
+
+    const title = post.title;
+    const link = post.url || post.link;
+    const from =
+      post.source?.title ||
+      post.creator ||
+      post.site ||
+      "RSS";
+
+    const message =
+`🚨 *Crypto News*
+
+${title}
+• Market reaction is developing
+• Traders are monitoring closely
+• Short-term impact possible
+• Volatility expected
+• More updates soon
+
+📰 Source: ${from}
+🔗 ${link}`;
+
+    for (const chatId of subscribers) {
+      await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+    }
+  }
+
+  return posts;
 }
 
-setInterval(checkNews, CHECK_INTERVAL);
-/* ========================= */
+/* ========= AUTO LOOP ========= */
+setInterval(() => {
+  fetchAllNews(false);
+}, CHECK_INTERVAL);
