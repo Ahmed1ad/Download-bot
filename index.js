@@ -7,8 +7,10 @@ import Parser from "rss-parser";
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CRYPTOPANIC_API = process.env.CRYPTOPANIC_API;
 const PORT = process.env.PORT || 3000;
+
 const CHECK_INTERVAL = 60 * 1000;
 const SIGNATURE = "@A7med_ad1";
+const CHANNEL_ID = "@Crypto_NewsAR";
 /* ========================= */
 
 if (!BOT_TOKEN || !CRYPTOPANIC_API) {
@@ -26,8 +28,6 @@ app.listen(PORT, () =>
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const parser = new Parser();
-
-const subscribers = new Set();
 const sentItems = new Set();
 
 /* ========= RSS FEEDS ========= */
@@ -37,25 +37,9 @@ const RSS_FEEDS = [
   "https://blog.binance.com/en/rss"
 ];
 
-/* ========= START ========= */
-bot.onText(/\/start/, (msg) => {
-  subscribers.add(msg.chat.id);
-  bot.sendMessage(
-    msg.chat.id,
-    "📰 *Crypto News Bot*\n\n" +
-      "✅ تم الاشتراك في الأخبار التلقائية\n" +
-      "🕒 مع تاريخ ووقت\n" +
-      "🧠 تلخيص عربي\n" +
-      "🏷️ تصنيف الخبر\n\n" +
-      "جاهز 🚀",
-    { parse_mode: "Markdown" }
-  );
-});
-
 /* ========= HELPERS ========= */
 function getDateTime() {
-  const now = new Date();
-  return now.toLocaleString("ar-EG", {
+  return new Date().toLocaleString("ar-EG", {
     timeZone: "Africa/Cairo",
     hour12: true
   });
@@ -72,13 +56,13 @@ function classify(title = "") {
   return "🌍 General";
 }
 
-function arabicSummary(title = "") {
+function arabicSummary() {
   return (
-    "• الخبر بيشير لتحركات جديدة في سوق العملات الرقمية.\n" +
-    "• المستثمرين بيتابعوا التطورات وتأثيرها على الأسعار.\n" +
-    "• من المتوقع حدوث تقلبات على المدى القصير.\n" +
-    "• التحليل الحالي بيشمل ردود فعل السوق.\n" +
-    "• تفاصيل أكتر في الرابط الرسمي."
+    "• الخبر يوضح تطورات جديدة في سوق العملات الرقمية.\n" +
+    "• المتداولون يراقبون تأثيره على الأسعار.\n" +
+    "• من المحتمل حدوث تقلبات خلال الفترة القادمة.\n" +
+    "• التحليل يشير إلى تغير في شهية المخاطرة.\n" +
+    "• التفاصيل الكاملة عبر المصدر."
   );
 }
 
@@ -127,28 +111,26 @@ async function checkNews() {
       post.site ||
       "Crypto News";
 
-    const category = classify(title);
-    const dateTime = getDateTime();
-
     const message =
 `🚨 *خبر كريبتو جديد*
 
-🕒 ${dateTime}
-🏷️ ${category}
+🕒 ${getDateTime()}
+🏷️ ${classify(title)}
 
 📰 *العنوان:*
 ${title}
 
 🧠 *ملخص بالعربي:*
-${arabicSummary(title)}
+${arabicSummary()}
 
 🔗 ${link}
 
 ✍️ ${SIGNATURE}`;
 
-    for (const chatId of subscribers) {
-      await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
-    }
+    await bot.sendMessage(CHANNEL_ID, message, {
+      parse_mode: "Markdown",
+      disable_web_page_preview: false
+    });
   }
 }
 
