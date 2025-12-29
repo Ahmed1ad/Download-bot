@@ -8,6 +8,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CRYPTOPANIC_API = process.env.CRYPTOPANIC_API;
 const PORT = process.env.PORT || 3000;
 const CHECK_INTERVAL = 60 * 1000;
+const SIGNATURE = "@A7med_ad1";
 /* ========================= */
 
 if (!BOT_TOKEN || !CRYPTOPANIC_API) {
@@ -43,11 +44,43 @@ bot.onText(/\/start/, (msg) => {
     msg.chat.id,
     "📰 *Crypto News Bot*\n\n" +
       "✅ تم الاشتراك في الأخبار التلقائية\n" +
-      "📡 أي خبر جديد هيوصلك فورًا\n\n" +
-      "✍️ @A7med_ad1",
+      "🕒 مع تاريخ ووقت\n" +
+      "🧠 تلخيص عربي\n" +
+      "🏷️ تصنيف الخبر\n\n" +
+      "جاهز 🚀",
     { parse_mode: "Markdown" }
   );
 });
+
+/* ========= HELPERS ========= */
+function getDateTime() {
+  const now = new Date();
+  return now.toLocaleString("ar-EG", {
+    timeZone: "Africa/Cairo",
+    hour12: true
+  });
+}
+
+function classify(title = "") {
+  const t = title.toLowerCase();
+  if (t.includes("bitcoin") || t.includes("btc")) return "🟠 Bitcoin";
+  if (t.includes("ethereum") || t.includes("eth")) return "🔵 Ethereum";
+  if (t.includes("binance") || t.includes("coinbase")) return "🏦 Exchanges";
+  if (t.includes("hack") || t.includes("exploit")) return "🚨 Security";
+  if (t.includes("etf") || t.includes("sec")) return "🏛️ Regulation";
+  if (t.includes("altcoin")) return "🟣 Altcoins";
+  return "🌍 General";
+}
+
+function arabicSummary(title = "") {
+  return (
+    "• الخبر بيشير لتحركات جديدة في سوق العملات الرقمية.\n" +
+    "• المستثمرين بيتابعوا التطورات وتأثيرها على الأسعار.\n" +
+    "• من المتوقع حدوث تقلبات على المدى القصير.\n" +
+    "• التحليل الحالي بيشمل ردود فعل السوق.\n" +
+    "• تفاصيل أكتر في الرابط الرسمي."
+  );
+}
 
 /* ========= FETCH CRYPTOPANIC ========= */
 async function fetchCryptoPanic() {
@@ -79,9 +112,7 @@ async function fetchRSS() {
 /* ========= MAIN LOOP ========= */
 async function checkNews() {
   let posts = await fetchCryptoPanic();
-  if (!posts.length) {
-    posts = await fetchRSS();
-  }
+  if (!posts.length) posts = await fetchRSS();
 
   for (const post of posts) {
     const id = post.id || post.link;
@@ -96,18 +127,24 @@ async function checkNews() {
       post.site ||
       "Crypto News";
 
+    const category = classify(title);
+    const dateTime = getDateTime();
+
     const message =
-`🚨 *Crypto News*
+`🚨 *خبر كريبتو جديد*
 
+🕒 ${dateTime}
+🏷️ ${category}
+
+📰 *العنوان:*
 ${title}
-• Market reaction is developing
-• Traders are monitoring closely
-• Short-term impact possible
-• Volatility expected
-• More updates soon
 
-📰 *Source:* ${source}
-🔗 ${link}`;
+🧠 *ملخص بالعربي:*
+${arabicSummary(title)}
+
+🔗 ${link}
+
+✍️ ${SIGNATURE}`;
 
     for (const chatId of subscribers) {
       await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
