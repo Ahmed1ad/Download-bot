@@ -84,13 +84,36 @@ async function fetchRSS() {
   return news;
 }
 
+/* ========= FETCH COINGECKO ========= */
+async function fetchCoinGecko() {
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/news?page=1"
+    );
+    const data = await res.json();
+    return data.data || [];
+  } catch {
+    return [];
+  }
+}
+
 /* ========= MAIN LOOP ========= */
 async function checkNews() {
   let posts = await fetchCryptoPanic();
-  if (!posts.length) posts = await fetchRSS();
+  let source = "cryptopanic";
+
+  if (!posts.length) {
+    posts = await fetchRSS();
+    source = "rss";
+  }
+
+  if (!posts.length) {
+    posts = await fetchCoinGecko();
+    source = "coingecko";
+  }
 
   for (const post of posts) {
-    const id = post.id || post.link;
+    const id = post.id || post.link || post.url;
     if (sentItems.has(id)) continue;
     sentItems.add(id);
 
